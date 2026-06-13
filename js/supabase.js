@@ -6,8 +6,8 @@
   3. Вставь ниже
 */
 
-const SUPABASE_URL  = 'https://ТВОЙ_ПРОЕКТ.supabase.co';   // ← заменить
-const SUPABASE_ANON = 'ТВОЙ_ANON_KEY';                       // ← заменить
+const SUPABASE_URL  = 'https://yfxtmmhxbixngdvmucoc.supabase.co';   // ← заменить
+const SUPABASE_ANON = 'sb_publishable_N89j1UFUTdFMfHaixSJTlA_3CZXlokJ';                       // ← заменить
 
 // Подключаем SDK через CDN (добавлено в index.html)
 const _sb = window.supabase?.createClient(SUPABASE_URL, SUPABASE_ANON);
