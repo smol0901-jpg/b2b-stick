@@ -125,7 +125,7 @@ const SB = {
   async getPrintQueue() {
     const { data, error } = await _sb
       .from('print_queue')
-      .select('*, profiles(name, role)')
+      .select('*, profile:created_by(name, role)')
       .order('created_at', { ascending: false });
     if (error) throw error;
     return data || [];
