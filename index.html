@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>NEURAL LABEL PRO v2.0 | ASV_PROD</title>
+
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- QR generator -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Exo+2:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/layout.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/pages.css">
+
+<style>
+/* Autocomplete dropdown */
+.ac-wrap{position:relative;}
+.ac-drop{
+  position:absolute;top:100%;left:0;right:0;z-index:300;
+  background:var(--panel);border:1px solid var(--border2);border-top:none;
+  border-radius:0 0 var(--r) var(--r);max-height:200px;overflow-y:auto;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);
+}
+.ac-item{
+  padding:8px 11px;font-size:12px;cursor:pointer;
+  display:flex;align-items:center;gap:8px;
+  border-bottom:1px solid var(--border);transition:.1s;
+}
+.ac-item:hover,.ac-item.sel{background:rgba(0,212,255,.08);color:var(--accent);}
+.ac-item .ac-icon{font-size:16px;flex-shrink:0;}
+.ac-item .ac-meta{font-size:10px;color:var(--muted2);margin-top:1px;}
+.ac-empty{padding:10px 11px;font-size:11px;color:var(--muted2);}
+
+/* Mobile print button */
+.mobile-print-btn{
+  display:none;
+  position:fixed;bottom:80px;right:18px;z-index:400;
+  width:58px;height:58px;border-radius:50%;
+  background:var(--accent);border:none;color:var(--bg0);
+  font-size:22px;cursor:pointer;box-shadow:0 4px 20px rgba(0,212,255,.5);
+  align-items:center;justify-content:center;transition:.2s;
+}
+.mobile-print-btn:hover{background:var(--neon);transform:scale(1.08);}
+@media(max-width:768px){
+  .mobile-print-btn{display:flex;}
+  .qgrid{grid-template-columns:1fr!important;}
+  .qpanel{max-height:55vh;}
+  .qprev{display:none;}
+  .cgrid{grid-template-columns:1fr!important;}
+  .sgrid{grid-template-columns:1fr!important;}
+  #nav{width:52px!important;}
+  body.nex #app{left:52px!important;}
+}
+
+/* Queue badge pulse */
+.nb.pulse{animation:qpulse 1s infinite;}
+@keyframes qpulse{0%,100%{box-shadow:0 0 0 0 rgba(255,107,53,.5);}50%{box-shadow:0 0 0 6px rgba(255,107,53,0);}}
+
+/* Register modal */
+.pass-strength{height:4px;border-radius:2px;margin-top:4px;transition:.3s;background:var(--border);}
+</style>
+</head>
+<body>
+
+<!-- ========== LOGIN ========== -->
+<div id="login">
+  <div class="lbox">
+    <div class="logo-wrap">
+      <div class="logo-t">NEURAL<b>LABEL</b></div>
+      <span class="logo-s">PRO v2.0 / ASV_PROD · ВЛАВАШЕ ФУД</span>
+    </div>
+    <div class="lf">
+      <label>EMAIL</label>
+      <input type="email" id="lu" placeholder="ivan@vlavashe.ru" autocomplete="email">
+      <label>ПАРОЛЬ</label>
+      <input type="password" id="lp" placeholder="••••••" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter')AUTH.login()">
+    </div>
+    <button class="lbtn" onclick="AUTH.login()">→ ВОЙТИ</button>
+    <div style="margin-top:14px;text-align:center">
+      <a href="#" onclick="FORGOT.open()" style="font-size:11px;color:var(--muted2)">Забыли пароль?</a>
+    </div>
+    <!-- Нет демо-аккаунтов — реальная регистрация через админа -->
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:11px;color:var(--muted2);text-align:center;line-height:1.7">
+      Доступ предоставляется администратором.<br>
+      При первом входе проверьте почту для подтверждения.
+    </div>
+  </div>
+</div>
+
+<!-- ========== FORGOT PASSWORD ========== -->
+<div class="modal" id="modal-forgot">
+  <div class="mbox msm">
+    <div class="mh"><h3>🔑 Восстановление пароля</h3><button class="mc" onclick="UI.closeModal('modal-forgot')">✕</button></div>
+    <div class="mb">
+      <p style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.7">
+        Введите email — отправим ссылку для сброса пароля.
+      </p>
+      <div class="fg"><label>Email</label><input type="email" id="forgot_email" placeholder="ivan@vlavashe.ru"></div>
+    </div>
+    <div class="mf">
+      <button class="btn bg" onclick="UI.closeModal('modal-forgot')">Отмена</button>
+      <button class="btn bp" onclick="FORGOT.send()">📧 Отправить ссылку</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== HEADER ========== -->
+<div id="hdr">
+  <span class="hdr-logo">NEURAL<b>LABEL</b> <span class="hdr-ver">PRO v2</span></span>
+  <div class="hdr-sep"></div>
+  <div class="hdr-ai-status">
+    <div class="ai-dot" id="aidot"></div>
+    <span id="aistat">AI:OFF</span>
+  </div>
+  <div id="sb-status" style="font-size:10px;font-family:var(--ff);display:flex;align-items:center;gap:5px;color:var(--muted2)">
+    <span style="width:7px;height:7px;border-radius:50%;background:var(--muted2)" id="sb-dot"></span>
+    <span id="sb-txt">DB</span>
+  </div>
+  <button class="hdr-btn" onclick="UI.openModal('modal-help')">?</button>
+  <span class="hdr-role" id="rtag">—</span>
+  <span class="hdr-user" id="utag" style="cursor:pointer" onclick="NAV.go('sett');SETT.tab('profile')" title="Мой профиль">—</span>
+  <button class="hdr-btn" onclick="AUTH.logout()">⏻</button>
+</div>
+
+<!-- ========== SIDEBAR ========== -->
+<div id="nav">
+  <div class="ni on"  data-pg="dash"   onclick="NAV.go('dash')">  <span>🏠</span><span class="nl">Дашборд</span></div>
+  <div class="ni"     data-pg="quick"  onclick="NAV.go('quick')"> <span>⚡</span><span class="nl">Быстрая печать</span></div>
+  <div class="ni"     data-pg="queue"  onclick="NAV.go('queue')"> <span>🖨️</span><span class="nl">Очередь печати</span><span class="nb hidden" id="nb-queue">0</span></div>
+  <div class="ni"     data-pg="mats"   onclick="NAV.go('mats')">  <span>🧪</span><span class="nl">Сырьё</span><span class="nb hidden" id="nb-mats">0</span></div>
+  <div class="ni"     data-pg="emps"   onclick="NAV.go('emps')">  <span>👥</span><span class="nl">Сотрудники</span></div>
+  <div class="ni"     data-pg="tmpls"  onclick="NAV.go('tmpls')"> <span>📐</span><span class="nl">Шаблоны</span></div>
+  <div class="ni"     data-pg="cons"   onclick="NAV.go('cons')">  <span>🛠️</span><span class="nl">Конструктор</span></div>
+  <div class="nsep"></div>
+  <div class="ni"     data-pg="depts"  onclick="NAV.go('depts')"> <span>🏭</span><span class="nl">Цеха</span></div>
+  <div class="ni"     data-pg="jour"   onclick="NAV.go('jour')">  <span>📔</span><span class="nl">Журналы</span></div>
+  <div class="ni"     data-pg="hist"   onclick="NAV.go('hist')">  <span>📋</span><span class="nl">История</span></div>
+  <div class="ni"     data-pg="scan"   onclick="NAV.go('scan')">  <span>🔍</span><span class="nl">QR Сканер</span></div>
+  <div class="ni"     data-pg="ai"     onclick="NAV.go('ai')">    <span>🧠</span><span class="nl">ИИ & Боты</span></div>
+  <div class="ni"     data-pg="sett"   onclick="NAV.go('sett')"  id="nav-sett"><span>⚙️</span><span class="nl">Настройки</span></div>
+  <div class="nexp"   onclick="NAV.toggleSidebar()">⇆</div>
+</div>
+
+<!-- ========== APP ========== -->
+<div id="app">
+  <div class="pg on" id="pg-dash"></div>
+  <div class="pg"    id="pg-quick"></div>
+  <div class="pg"    id="pg-queue"></div>
+  <div class="pg"    id="pg-mats"></div>
+  <div class="pg"    id="pg-emps"></div>
+  <div class="pg"    id="pg-tmpls"></div>
+  <div class="pg"    id="pg-cons"></div>
+  <div class="pg"    id="pg-depts"></div>
+  <div class="pg"    id="pg-jour"></div>
+  <div class="pg"    id="pg-hist"></div>
+  <div class="pg"    id="pg-scan"></div>
+  <div class="pg"    id="pg-ai"></div>
+  <div class="pg"    id="pg-sett"></div>
+</div>
+
+<!-- MODALS CONTAINER -->
+<div id="modals-container"></div>
+
+<!-- DRAWER -->
+<div id="drw">
+  <div class="drw-header">
+    <span id="drwt">Детали</span>
+    <button onclick="UI.closeDrw()">✕</button>
+  </div>
+  <div id="drwb"></div>
+  <div id="drwa"></div>
+</div>
+
+<!-- MOBILE PRINT FAB -->
+<button class="mobile-print-btn" id="fab-print" onclick="QUICK._fabClick()" title="Добавить в очередь печати">
+  🖨️
+</button>
+
+<div id="parea"></div>
+<div id="toast">—</div>
+
+<!-- ==============================
+     SCRIPTS
+     ============================== -->
+<!-- Core modules -->
+<script src="js/supabase.js"></script>
+<script src="js/db.js"></script>
+<script src="js/state.js"></script>
+<script src="js/auth_sb.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/nav.js"></script>
+<script src="js/label.js"></script>
+
+<!-- Page modules -->
+<script src="js/pages/dashboard.js"></script>
+<script src="js/pages/quick.js"></script>
+<script src="js/pages/print_queue.js"></script>
+<script src="js/pages/materials.js"></script>
+<script src="js/pages/employees.js"></script>
+<script src="js/pages/templates.js"></script>
+<script src="js/pages/constructor.js"></script>
+<script src="js/pages/departments.js"></script>
+<script src="js/pages/history.js"></script>
+<script src="js/pages/scan.js"></script>
+<script src="js/pages/ai.js"></script>
+<script src="js/pages/settings.js"></script>
+
+<!-- App bootstrap -->
+<script src="js/app.js"></script>
+
+<script>
+/* ============================================================
+   FORGOT PASSWORD
+   ============================================================ */
+const FORGOT = {
+  open() { UI.openModal('modal-forgot'); },
+  async send() {
+    const email = document.getElementById('forgot_email')?.value.trim();
+    if (!email) { UI.toast('Введите email', 'err'); return; }
+    try {
+      const { error } = await SB.client.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + window.location.pathname
+      });
+      if (error) throw error;
+      UI.toast('📧 Ссылка отправлена на ' + email);
+      UI.closeModal('modal-forgot');
+    } catch(e) { UI.toast('❌ ' + e.message, 'err'); }
+  }
+};
+
+/* ============================================================
+   PRODUCT AUTOCOMPLETE (replaces plain <select>)
+   ============================================================ */
+const AC = {
+  _sel: -1,
+  _callbacks: {},   // inputId -> onSelect callback
+
+  init(inputId, listId, onSelect) {
+    const inp = document.getElementById(inputId);
+    if (!inp) return;
+    inp.setAttribute('autocomplete','off');
+    this._callbacks[inputId] = onSelect;
+
+    inp.addEventListener('input', () => {
+      this._sel = -1;
+      this.show(inputId, listId);
+    });
+    inp.addEventListener('focus', () => this.show(inputId, listId));
+    inp.addEventListener('keydown', (e) => {
+      const items = document.querySelectorAll(`#${listId} .ac-item`);
+      if (e.key === 'ArrowDown') { e.preventDefault(); this._sel = Math.min(this._sel+1, items.length-1); this._highlight(items); }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); this._sel = Math.max(this._sel-1, 0); this._highlight(items); }
+      if (e.key === 'Enter' && this._sel >= 0) { e.preventDefault(); items[this._sel]?.click(); }
+      if (e.key === 'Escape') { this.hide(listId); }
+    });
+    inp.addEventListener('blur', () => setTimeout(() => this.hide(listId), 180));
+  },
+
+  show(inputId, listId) {
+    const inp = document.getElementById(inputId);
+    const box = document.getElementById(listId);
+    if (!inp || !box) return;
+    const q   = inp.value.trim().toLowerCase();
+    const all = S.mats.filter(m => m.st !== 'arc');
+    const res = q
+      ? all.filter(m => m.name.toLowerCase().includes(q) ||
+                        (m.lot||'').toLowerCase().includes(q) ||
+                        (m.cat||'').toLowerCase().includes(q))
+      : all.slice(0, 20);
+
+    if (!res.length) {
+      box.innerHTML = `<div class="ac-empty">Ничего не найдено</div>`;
+      box.style.display = 'block';
+      return;
+    }
+
+    box.innerHTML = res.map(m => {
+      const days = m.exp ? Math.ceil((new Date(m.exp) - Date.now()) / 86400000) : null;
+      const expiryBadge = days === null ? ''
+        : days < 0   ? `<span style="color:var(--danger);font-size:10px">⚠️ ПРОСРОЧЕНО</span>`
+        : days <= 3  ? `<span style="color:var(--warn);font-size:10px">${days}д.</span>`
+        : '';
+      return `<div class="ac-item" data-id="${m.id}" onclick="AC.select('${inputId}','${listId}',${m.id})">
+        <span class="ac-icon">${CATI[m.cat]||'📦'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.name}</div>
+          <div class="ac-meta">${m.tmp||'—'} · ${m.sh?m.sh+'ч':''} ${m.all?'· ⚠️ '+m.all:''}</div>
+        </div>
+        ${expiryBadge}
+      </div>`;
+    }).join('');
+    box.style.display = 'block';
+  },
+
+  select(inputId, listId, matId) {
+    const m   = S.mats.find(x => x.id === matId);
+    if (!m) return;
+    const inp = document.getElementById(inputId);
+    if (inp) inp.value = m.name;
+    this.hide(listId);
+    // Store selected mat id for getSelectedId()
+    inp?.setAttribute('data-mat-id', matId);
+    // Trigger registered callback for this input
+    const cb = this._callbacks[inputId];
+    if (typeof cb === 'function') cb(matId, m);
+  },
+
+  hide(listId) {
+    const box = document.getElementById(listId);
+    if (box) box.style.display = 'none';
+  },
+
+  _highlight(items) {
+    items.forEach((el, i) => el.classList.toggle('sel', i === this._sel));
+    if (items[this._sel]) items[this._sel].scrollIntoView({ block:'nearest' });
+  },
+
+  getSelectedId(inputId) {
+    return parseInt(document.getElementById(inputId)?.getAttribute('data-mat-id')) || null;
+  }
+};
+
+/* ============================================================
+   APP BOOTSTRAP — Supabase version
+   ============================================================ */
+const APP = {
+  async loadFromSupabase() {
+    document.getElementById('sb-dot').style.background = 'var(--warn)';
+    document.getElementById('sb-txt').textContent = 'Sync...';
+    try {
+      const [mats, tmpls, emps, sett] = await Promise.all([
+        SB.getAll('materials'),
+        SB.getAll('templates'),
+        SB.getAll('profiles'),
+        SB.client.from('settings').select('data').eq('org_id', S.ses?.orgId||'vlavashe').single()
+      ]);
+
+      // Map Supabase snake_case → app camelCase
+      S.mats  = (mats||[]).map(m => ({
+        id:   m.id, name: m.name, cat: m.category, tmp: m.temperature,
+        sh:   m.shelf_hours, exp: m.expiry_date, all: m.allergens,
+        lot:  m.lot, hac: m.haccp_note, sup: m.supplier, un: m.unit||'кг',
+        st:   m.status||'active', crd: new Date(m.created_at).getTime()
+      }));
+
+      S.tmpls = (tmpls||[]).map(t => ({
+        id:   t.id, name: t.name, sys: t.is_system,
+        w:    t.width_mm, h: t.height_mm, logo: t.logo,
+        blocks: typeof t.blocks === 'string' ? JSON.parse(t.blocks) : (t.blocks||[])
+      }));
+      // Merge system templates if missing
+      DB.DEFAULTS.tmpls.forEach(dt => { if (!S.tmpls.find(t => t.id === dt.id)) S.tmpls.unshift(dt); });
+
+      S.emps  = (emps||[]).filter(p => p.id !== S.ses?.id).map(p => ({
+        id: p.id, name: p.name, role: p.role, pos: p.position,
+        dep: p.dept, ph: p.phone, tg: p.tg, med: p.med_book,
+        st: p.active === false ? 'arc' : 'active', avatar: p.avatar_url
+      }));
+
+      S.sett  = sett?.data?.data || sett?.data || DB.DEFAULTS.sett;
+
+      document.getElementById('sb-dot').style.background = 'var(--success)';
+      document.getElementById('sb-txt').textContent = 'DB:ON';
+
+      // Subscribe realtime
+      this.subscribeAll();
+
+    } catch(e) {
+      console.error('Supabase load error:', e);
+      document.getElementById('sb-dot').style.background = 'var(--danger)';
+      document.getElementById('sb-txt').textContent = 'DB:ERR';
+      // Fallback to localStorage
+      initState();
+      UI.toast('⚠️ Supabase недоступен — работаем локально', 'inf');
+    }
+  },
+
+  subscribeAll() {
+    // Materials realtime
+    SB.subscribe('materials', async () => {
+      const mats = await SB.getAll('materials');
+      S.mats = (mats||[]).map(m => ({
+        id:m.id, name:m.name, cat:m.category, tmp:m.temperature,
+        sh:m.shelf_hours, exp:m.expiry_date, all:m.allergens,
+        lot:m.lot, hac:m.haccp_note, sup:m.supplier, un:m.unit||'кг',
+        st:m.status||'active', crd:new Date(m.created_at).getTime()
+      }));
+      if (S.page === 'mats')  MATS.render();
+      if (S.page === 'quick') QUICK.init();
+      if (S.page === 'dash')  DASH.update();
+    });
+
+    // Print queue realtime
+    SB.subscribe('print_queue', async (payload) => {
+      if (S.page === 'queue') await QUEUE.load();
+      if (payload.eventType === 'INSERT') {
+        const nb = document.getElementById('nb-queue');
+        const n  = parseInt(nb?.textContent||'0') + 1;
+        if (nb) { nb.textContent = n; nb.classList.remove('hidden'); nb.classList.add('pulse'); }
+        if (S.ses?.role !== 'staff') {
+          UI.toast('📥 Новая заявка: ' + (payload.new?.material_name||''), 'inf');
+        }
+      }
+    });
+
+    // Profiles realtime
+    SB.subscribe('profiles', async () => {
+      const emps = await SB.getAll('profiles');
+      S.emps = (emps||[]).filter(p => p.id !== S.ses?.id).map(p => ({
+        id:p.id, name:p.name, role:p.role, pos:p.position,
+        dep:p.dept, ph:p.phone, tg:p.tg, med:p.med_book,
+        st:p.active===false?'arc':'active', avatar:p.avatar_url
+      }));
+      if (S.page === 'emps') EMPS.render();
+      if (S.page === 'sett' && S.settTab === 'roles') SETT.tab('roles');
+    });
+  }
+};
+
+/* ============================================================
+   QUICK PRINT — add to queue (mobile-friendly)
+   ============================================================ */
+
+/** FAB button handler: if not on Quick Print page, navigate there first
+ *  (so the autocomplete/template/employee fields exist), then submit. */
+QUICK._fabClick = function() {
+  if (S.page !== 'quick') {
+    NAV.go('quick');
+    UI.toast('Заполните данные и нажмите 🖨️ ещё раз', 'inf');
+    return;
+  }
+  this.sendToQueue();
+};
+
+QUICK.sendToQueue = async function() {
+  const inp   = document.getElementById('q_prod_input');
+  const matId = inp ? AC.getSelectedId('q_prod_input') : parseInt(document.getElementById('q_prod')?.value);
+  const m     = S.mats.find(x => x.id === matId);
+  if (!m) { UI.toast('Выберите продукт', 'err'); return; }
+
+  const tid   = document.getElementById('q_tmpl')?.value;
+  const od    = document.getElementById('q_dt')?.value;
+  const eid   = parseInt(document.getElementById('q_emp')?.value);
+  const emp   = S.emps.find(e => e.id === eid);
+  const ob    = emp?.name || document.getElementById('q_empm')?.value || S.ses?.name || '—';
+  const cnt   = parseInt(document.getElementById('q_cnt')?.value) || 1;
+  const bat   = document.getElementById('q_bat')?.value || m.lot || '';
+
+  try {
+    await SB.addPrintJob({
+      material_id:   m.id,
+      material_name: m.name,
+      template_id:   tid,
+      open_date:     od ? new Date(od).toISOString() : new Date().toISOString(),
+      opened_by:     ob,
+      batch:         bat,
+      copies:        cnt,
+      created_by:    S.ses?.id,
+      org_id:        S.ses?.orgId || 'vlavashe'
+    });
+    UI.toast('📥 Заявка на печать отправлена!', 'ok');
+    logAct('Заявка на печать', S.ses?.name, m.name, 'print', m.id);
+  } catch(e) { UI.toast('❌ ' + e.message, 'err'); }
+};
+
+/* Override quick print button for staff — send to queue instead of direct print */
+const _origQPrint = QUICK.print?.bind(QUICK);
+QUICK.print = function() {
+  if (S.ses?.role === 'staff') {
+    QUICK.sendToQueue();
+  } else {
+    _origQPrint?.();
+  }
+};
+
+/* ============================================================
+   PATCH quick.js — use autocomplete input instead of select
+   ============================================================ */
+const _origQInit = QUICK.init?.bind(QUICK);
+QUICK.init = function() {
+  _origQInit?.();
+  // Replace select with autocomplete input
+  const selWrap = document.getElementById('q_prod')?.parentElement;
+  if (selWrap && !document.getElementById('q_prod_input')) {
+    const oldSel = document.getElementById('q_prod');
+    const wrap   = document.createElement('div');
+    wrap.className = 'ac-wrap';
+    const inp    = document.createElement('input');
+    inp.id       = 'q_prod_input';
+    inp.type     = 'text';
+    inp.placeholder = 'Начните вводить название...';
+    inp.style.cssText = 'width:100%;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:6px 9px;border-radius:var(--r);font-size:12px';
+    const drop   = document.createElement('div');
+    drop.id      = 'q_prod_drop';
+    drop.className = 'ac-drop';
+    drop.style.display = 'none';
+    wrap.appendChild(inp);
+    wrap.appendChild(drop);
+    oldSel.replaceWith(wrap);
+    AC.init('q_prod_input', 'q_prod_drop', (matId) => {
+      QUICK.prodChange(matId);
+    });
+    // First preview render used the (not-yet-mounted) autocomplete input and
+    // produced an empty result — re-render now that it exists.
+    QUICK.preview();
+  }
+};
+
+QUICK.prodChange = function(matId) {
+  const id  = matId || AC.getSelectedId('q_prod_input');
+  const m   = S.mats.find(x => x.id === id);
+  const inf = document.getElementById('q_info');
+  if (m) {
+    if (inf) {
+      inf.innerHTML = `🌡️ <b>${m.tmp||'—'}</b> &nbsp; ⏱️ <b>${m.sh||'—'} ч.</b> &nbsp; ⚠️ ${m.all||'—'}`;
+      inf.classList.remove('hidden');
+    }
+  } else if (inf) inf.classList.add('hidden');
+  QUICK.preview();
+};
+
+QUICK.getData = function() {
+  const mid = AC.getSelectedId('q_prod_input');
+  const m   = S.mats.find(x => x.id === mid) || {};
+  const eid = parseInt(document.getElementById('q_emp')?.value);
+  const emp = S.emps.find(e => e.id === eid);
+  const od  = document.getElementById('q_dt')?.value;
+  const ob  = emp?.name || (document.getElementById('q_empm')?.value || '—');
+  const bat = document.getElementById('q_bat')?.value || m.lot || '—';
+  return LABEL.matToData(m, od, ob, bat);
+};
+
+/* ============================================================
+   NAV PATCH — add queue page
+   ============================================================ */
+const _origNAVgo = NAV.go.bind(NAV);
+NAV.go = function(p) {
+  _origNAVgo(p);
+  if (p === 'queue') QUEUE.render();
+  // Clear queue badge when viewed
+  if (p === 'queue') {
+    const nb = document.getElementById('nb-queue');
+    if (nb) { nb.classList.add('hidden'); nb.classList.remove('pulse'); }
+  }
+};
+
+/* ============================================================
+   INIT
+   ============================================================ */
+(function() {
+  // localStorage fallback init (will be overwritten after Supabase login)
+  initState();
+  initHelpModal();
+
+  // Check if already logged in via Supabase session
+  SB.client?.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      // Show password update form
+      const newPwd = prompt('Введите новый пароль (минимум 4 символа):');
+      if (newPwd && newPwd.length >= 4) {
+        const { error } = await SB.client.auth.updateUser({ password: newPwd });
+        if (!error) { UI.toast('✅ Пароль обновлён'); }
+        else         { UI.toast('❌ ' + error.message, 'err'); }
+      }
+    }
+  });
+
+  // Check existing session on page load
+  SB.getSession().then(async session => {
+    if (session?.user) {
+      const profile = await SB.getProfile(session.user.id).catch(() => null);
+      if (profile && profile.active !== false) {
+        S.ses = {
+          id:       session.user.id,
+          email:    session.user.email,
+          name:     profile.name,
+          role:     profile.role,
+          position: profile.position,
+          dept:     profile.dept,
+          avatar:   profile.avatar_url,
+          orgId:    profile.org_id
+        };
+        await APP.loadFromSupabase();
+        AUTH._showApp();
+      }
+    }
+  }).catch(console.error);
+})();
+</script>
+</body>
+</html>
