@@ -7,7 +7,12 @@ const QUICK = {
       <div class="qgrid">
         <div class="qpanel">
           <div class="qsec"><div class="qst">1. ПРОДУКТ</div>
-            <div class="fg mb8"><label>Продукт / Сырьё</label><select id="q_prod" onchange="QUICK.prodChange()"><option value="">-- Выберите --</option></select></div>
+            <div class="fg mb8"><label>Продукт / Сырьё</label>
+              <div style="display:flex;gap:4px">
+                <select id="q_prod" onchange="QUICK.prodChange()" style="flex:1"><option value="">-- Выберите --</option></select>
+                <button type="button" class="btn bg btn-sm" onclick="QUICK.openNewMatDlg()" title="Создать новый продукт на лету">+ Новый</button>
+              </div>
+            </div>
             <div id="q_info" class="hidden" style="padding:7px 9px;background:var(--bg3);border-radius:4px;border:1px solid var(--border2);font-size:11px;line-height:1.9;margin-bottom:7px"></div>
             <div id="q_expind" class="hidden expind"></div>
           </div>
@@ -61,6 +66,84 @@ const QUICK = {
     const now = new Date();
     document.getElementById('q_dt').value = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     this.preview();
+  },
+
+  // --- Create material on the fly ---
+  openNewMatDlg() {
+    if (!S.canEdit()) { UI.toast('Нет прав', 'err'); return; }
+    UI.openModal('modal-newmat', `
+      <div class="mbox msm">
+        <div class="mh"><h3>➕ Новый продукт</h3><button class="mc" onclick="UI.closeModal('modal-newmat')">✕</button></div>
+        <div class="mb" style="font-size:11px;color:var(--muted2);margin-bottom:10px">
+          Продукт создастся в справочнике «Материалы». Админ сможет дополнить (аллергены, срок, партия) позже.
+        </div>
+        <div class="mb" style="display:flex;flex-direction:column;gap:10px">
+          <div class="fg"><label>Название *</label><input type="text" id="nm_name" placeholder="Соус майонез" autofocus></div>
+          <div class="g2">
+            <div class="fg"><label>Категория</label>
+              <select id="nm_cat">
+                <option value="dairy">Молочное</option>
+                <option value="meat">Мясное</option>
+                <option value="fish">Рыба</option>
+                <option value="veg">Овощи/Фрукты</option>
+                <option value="dry">Сухие</option>
+                <option value="sauce">Соусы</option>
+                <option value="other" selected>Прочее</option>
+              </select>
+            </div>
+            <div class="fg"><label>Ед. изм.</label>
+              <select id="nm_unit">
+                <option value="кг">кг</option><option value="л">л</option>
+                <option value="шт">шт</option><option value="уп">уп</option>
+                <option value="г">г</option><option value="мл">мл</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="mf">
+          <button class="btn bg" onclick="UI.closeModal('modal-newmat')">Отмена</button>
+          <button class="btn bp" onclick="QUICK.createMatInline()">💾 Создать и выбрать</button>
+        </div>
+      </div>
+    `);
+  },
+
+  async createMatInline() {
+    const name = document.getElementById('nm_name').value.trim();
+    if (!name) { UI.toast('Введите название', 'err'); return; }
+    try {
+      const row = await SB.insert('materials', {
+        name,
+        category: document.getElementById('nm_cat').value,
+        unit:     document.getElementById('nm_unit').value,
+        status:   'active',
+        org_id:   S.ses?.orgId || 'vlavashe',
+        created_by: S.ses?.id,
+        notes:    'создан из печати'   // пометка для админа
+      });
+      // Добавляем в локальный кэш S.mats в нужной форме
+      const mat = {
+        id: row.id, name: row.name, cat: row.category, un: row.unit,
+        tmp: '', sh: 0, exp: row.expiry_date, all: row.allergens || '',
+        hac: row.haccp_note || '', lot: row.lot || '',
+        st: 'act', supplier: row.supplier || '', dept: '',
+        av: null
+      };
+      S.mats.push(mat);
+      S.matsMap[row.id] = mat;
+      // Вставляем в select и выбираем
+      const ps = document.getElementById('q_prod');
+      const o  = document.createElement('option');
+      o.value = row.id; o.textContent = row.name;
+      o.selected = true;
+      ps.insertBefore(o, ps.options[1] || null);  // после "-- Выберите --"
+      UI.closeModal('modal-newmat');
+      this.prodChange();
+      this.preview();
+      UI.toast('✅ Продукт создан: ' + row.name, 'ok');
+    } catch(e) {
+      UI.toast('❌ ' + e.message, 'err');
+    }
   },
 
   prodChange() {
