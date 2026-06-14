@@ -132,15 +132,16 @@
 <div id="nav">
   <div class="ni on"  data-pg="dash"   onclick="NAV.go('dash')">  <span>🏠</span><span class="nl">Дашборд</span></div>
   <div class="ni"     data-pg="quick"  onclick="NAV.go('quick')"> <span>⚡</span><span class="nl">Быстрая печать</span></div>
-  <div class="ni"     data-pg="queue"  onclick="NAV.go('queue')"> <span>🖨️</span><span class="nl">Очередь печати</span><span class="nb hidden" id="nb-queue">0</span></div>
-  <div class="ni"     data-pg="mats"   onclick="NAV.go('mats')">  <span>🧪</span><span class="nl">Сырьё</span><span class="nb hidden" id="nb-mats">0</span></div>
-  <div class="ni"     data-pg="emps"   onclick="NAV.go('emps')">  <span>👥</span><span class="nl">Сотрудники</span></div>
-  <div class="ni"     data-pg="tmpls"  onclick="NAV.go('tmpls')"> <span>📐</span><span class="nl">Шаблоны</span></div>
-  <div class="ni"     data-pg="cons"   onclick="NAV.go('cons')">  <span>🛠️</span><span class="nl">Конструктор</span></div>
+  <div class="ni"     data-pg="queue"  onclick="NAV.go('queue')"><span>🖨️</span><span class="nl">Очередь печати</span><span class="nb hidden" id="nb-queue">0</span></div>
+  <div class="ni" id="nav-reqs"  data-pg="reqs"  onclick="NAV.go('reqs')"><span>⏳</span><span class="nl">Заявки сырья</span><span class="nb hidden" id="nb-reqs">0</span> <span>🖨️</span><span class="nl">Очередь печати</span><span class="nb hidden" id="nb-queue">0</span></div>
+  <div class="ni" id="nav-mats"  data-pg="mats"   onclick="NAV.go('mats')">  <span>🧪</span><span class="nl">Сырьё</span><span class="nb hidden" id="nb-mats">0</span></div>
+  <div class="ni" id="nav-emps"  data-pg="emps"   onclick="NAV.go('emps')">  <span>👥</span><span class="nl">Сотрудники</span></div>
+  <div class="ni" id="nav-tmpls" data-pg="tmpls"  onclick="NAV.go('tmpls')"> <span>📐</span><span class="nl">Шаблоны</span></div>
+  <div class="ni" id="nav-cons"  data-pg="cons"   onclick="NAV.go('cons')">  <span>🛠️</span><span class="nl">Конструктор</span></div>
   <div class="nsep"></div>
-  <div class="ni"     data-pg="depts"  onclick="NAV.go('depts')"> <span>🏭</span><span class="nl">Цеха</span></div>
-  <div class="ni"     data-pg="jour"   onclick="NAV.go('jour')">  <span>📔</span><span class="nl">Журналы</span></div>
-  <div class="ni"     data-pg="hist"   onclick="NAV.go('hist')">  <span>📋</span><span class="nl">История</span></div>
+  <div class="ni" id="nav-depts" data-pg="depts"  onclick="NAV.go('depts')"> <span>🏭</span><span class="nl">Цеха</span></div>
+  <div class="ni" id="nav-jour"  data-pg="jour"   onclick="NAV.go('jour')">  <span>📔</span><span class="nl">Журналы</span></div>
+  <div class="ni" id="nav-hist"  data-pg="hist"   onclick="NAV.go('hist')">  <span>📋</span><span class="nl">История</span></div>
   <div class="ni"     data-pg="scan"   onclick="NAV.go('scan')">  <span>🔍</span><span class="nl">QR Сканер</span></div>
   <div class="ni"     data-pg="ai"     onclick="NAV.go('ai')">    <span>🧠</span><span class="nl">ИИ & Боты</span></div>
   <div class="ni"     data-pg="sett"   onclick="NAV.go('sett')"  id="nav-sett"><span>⚙️</span><span class="nl">Настройки</span></div>
@@ -152,7 +153,8 @@
   <div class="pg on" id="pg-dash"></div>
   <div class="pg"    id="pg-quick"></div>
   <div class="pg"    id="pg-queue"></div>
-  <div class="pg"    id="pg-mats"></div>
+  <div class="pg"    id="pg-reqs"></div>
+<div class="pg"    id="pg-mats"></div>
   <div class="pg"    id="pg-emps"></div>
   <div class="pg"    id="pg-tmpls"></div>
   <div class="pg"    id="pg-cons"></div>
