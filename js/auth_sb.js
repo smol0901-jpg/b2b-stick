@@ -82,12 +82,15 @@ const AUTH = {
     document.getElementById('utag').textContent = S.ses.name;
 
     if (S.ses.role === 'staff') {
-      const ns = document.getElementById('nav-sett');
-      if (ns) ns.style.display = 'none';
-      const cons = document.querySelector('.ni[data-pg="cons"]');
-      if (cons) cons.style.display = 'none';
-      const ai = document.querySelector('.ni[data-pg="ai"]');
-      if (ai) ai.style.display = 'none';
+      // Скрываем все админ-страницы от staff
+      ['nav-sett','nav-ai','nav-mats','nav-emps','nav-tmpls','nav-cons','nav-depts','nav-jour','nav-hist','nav-reqs'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+    } else {
+      // Админу показываем заявки (у суперадмина тоже)
+      const reqs = document.getElementById('nav-reqs');
+      if (reqs) reqs.style.display = '';
     } else {
       // Admins/superadmins print directly — hide the staff-oriented FAB
       const fab = document.getElementById('fab-print');
