@@ -21,7 +21,10 @@ const EMPS = {
   _renderGrid() {
     const q    = (document.getElementById('es')?.value || '').toLowerCase();
     const f    = document.getElementById('ef')?.value || 'all';
+    const isSuper = !!(S.isSA && S.isSA());
     const list = S.emps.filter(e => {
+      // Скрываем superadmin от всех, кроме самих суперов
+      if (!isSuper && (e.role === 'superadmin' || e.rm === 'superadmin')) return false;
       if (q && !e.name.toLowerCase().includes(q)) return false;
       if (f === 'active' && e.st === 'arc') return false;
       if (f === 'arc'    && e.st !== 'arc') return false;
