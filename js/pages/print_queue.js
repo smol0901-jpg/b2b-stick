@@ -29,6 +29,10 @@ const QUEUE = {
     this.subscribeRealtime();
   },
 
+  safeRender() {
+    this.render().catch(e => console.error('Queue render error:', e));
+  },
+
   async load() {
     try {
       const jobs = await SB.getPrintQueue();
@@ -133,20 +137,32 @@ const QUEUE = {
   },
 
   subscribeRealtime() {
-    if (this._channel) return;
-    this._channel = SB.subscribe('print_queue', async (payload) => {
-      // Reload jobs on any change
-      await this.load();
-      // Notify
-      if (payload.eventType === 'INSERT') {
-        UI.toast('📥 Новая заявка на печать: ' + (payload.new?.material_name || ''), 'inf');
-        // Sound ping
-        try { const ctx = new AudioContext(); const o = ctx.createOscillator(); o.connect(ctx.destination); o.frequency.value=800; o.start(); setTimeout(()=>o.stop(),120); } catch {}
-      }
-    });
+    // Защита от двойной подписки
+    if (this._channel) {
+      try { this._channel.unsubscribe(); } catch(_) {}
+      this._channel = null;
+    }
+    try {
+      this._channel = SB.subscribe('print_queue', async (payload) => {
+        try {
+          await this.load();
+          if (payload?.eventType === 'INSERT') {
+            UI.toast('📥 Новая заявка: ' + (payload.new?.material_name || ''), 'inf');
+            try { const ctx = new AudioContext(); const o = ctx.createOscillator(); o.connect(ctx.destination); o.frequency.value=800; o.start(); setTimeout(()=>o.stop(),120); } catch {}
+          }
+        } catch(e) {
+          console.error('Realtime callback error:', e);
+        }
+      });
+    } catch(e) {
+      console.warn('Realtime subscribe failed (UI works):', e);
+    }
   },
 
   unsubscribe() {
-    if (this._channel) { this._channel.unsubscribe(); this._channel = null; }
+    if (this._channel) {
+      try { this._channel.unsubscribe(); } catch(_) {}
+      this._channel = null;
+    }
   }
 };
