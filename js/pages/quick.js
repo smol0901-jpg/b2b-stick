@@ -8,10 +8,8 @@ const QUICK = {
         <div class="qpanel">
           <div class="qsec"><div class="qst">1. ПРОДУКТ</div>
             <div class="fg mb8"><label>Продукт / Сырьё</label>
-              <div style="display:flex;gap:4px">
-                <select id="q_prod" onchange="QUICK.prodChange()" style="flex:1"><option value="">-- Выберите --</option></select>
-                <button type="button" class="btn bg btn-sm" onclick="QUICK.openNewMatDlg()" title="Создать новый продукт на лету">+ Новый</button>
-              </div>
+              <input type="text" id="q_prod" list="q_prod_list" placeholder="Введите название или выберите из списка" autocomplete="off" oninput="QUICK.prodChange()">
+              <datalist id="q_prod_list"></datalist>
             </div>
             <div id="q_info" class="hidden" style="padding:7px 9px;background:var(--bg3);border-radius:4px;border:1px solid var(--border2);font-size:11px;line-height:1.9;margin-bottom:7px"></div>
             <div id="q_expind" class="hidden expind"></div>
@@ -46,11 +44,12 @@ const QUICK = {
         </div>
       </div>`;
 
-    // Populate selects
-    const ps = document.getElementById('q_prod');
-    S.mats.filter(m => m.st !== 'arc').forEach(m => {
-      const o = document.createElement('option'); o.value = m.id; o.textContent = m.name; ps.appendChild(o);
-    });
+    // Populate datalist с продуктами
+    const dl = document.getElementById('q_prod_list');
+    if (dl) {
+      dl.innerHTML = S.mats.filter(m => m.st !== 'arc').map(m =>
+        `<option data-mid="${m.id}" value="${m.name}"></option>`).join('');
+    }
     const es = document.getElementById('q_emp');
     S.emps.filter(e => e.st !== 'arc').forEach(e => {
       const o = document.createElement('option'); o.value = e.id; o.textContent = e.name; es.appendChild(o);
@@ -147,11 +146,21 @@ const QUICK = {
   },
 
   prodChange() {
-    const id  = parseInt(document.getElementById('q_prod').value);
-    const m   = S.mats.find(x => x.id === id);
+    // Ищем продукт по введённому имени (мэтч с datalist по data-mid)
+    const inp = document.getElementById('q_prod');
+    const val = inp.value.trim();
+    // Найти выбранный option в datalist
+    const dlOpt = Array.from(document.getElementById('q_prod_list').options)
+      .find(o => o.value === val);
+    const mid = dlOpt ? parseInt(dlOpt.dataset.mid) : null;
+    const m   = mid ? S.mats.find(x => x.id === mid) : null;
     const inf = document.getElementById('q_info');
     if (m) {
       inf.innerHTML = `🌡️ <b>${m.tmp || '—'}</b> &nbsp; ⏱️ <b>${m.sh || '—'} ч.</b> &nbsp; ⚠️ ${m.all || '—'}`;
+      inf.classList.remove('hidden');
+    } else if (val) {
+      // Свободный ввод — показываем подсказку
+      inf.innerHTML = `<span style="color:var(--accent)">✏️ Свободный ввод: "${val}"</span><br><span style="font-size:10px;color:var(--muted2)">Этикетка напечатается. Админ создаст карточку по заявке.</span>`;
       inf.classList.remove('hidden');
     } else {
       inf.classList.add('hidden');
@@ -159,9 +168,25 @@ const QUICK = {
     this.preview();
   },
 
+  _getCurrentMat() {
+    const val = document.getElementById('q_prod')?.value.trim();
+    if (!val) return null;
+    const dlOpt = Array.from(document.getElementById('q_prod_list')?.options || [])
+      .find(o => o.value === val);
+    const mid = dlOpt ? parseInt(dlOpt.dataset.mid) : null;
+    return mid ? (S.mats.find(x => x.id === mid) || null) : null;
+  },
+
   getData() {
-    const mid = parseInt(document.getElementById('q_prod').value);
-    const m   = S.mats.find(x => x.id === mid) || {};
+    const m   = this._getCurrentMat() || {};
+    const val = document.getElementById('q_prod')?.value.trim();
+    // Если продукта нет в БД — используем свободный ввод
+    if (!m.id && val) {
+      m.name = val;
+      m.tmp  = '—'; m.sh = 0; m.all = '—';
+      m.expiry_hours = null; m.lot = '';
+      m._freeInput   = true;
+    }
     const eid = parseInt(document.getElementById('q_emp').value);
     const emp = S.emps.find(e => e.id === eid);
     const od  = document.getElementById('q_dt').value;
@@ -204,13 +229,34 @@ const QUICK = {
     }
   },
 
-  print() {
+  async print() {
     const tid = document.getElementById('q_tmpl')?.value;
     const t   = S.tmpls.find(x => x.id === tid) || S.tmpls[0];
     const d   = this.getData();
     const cnt = parseInt(document.getElementById('q_cnt')?.value) || 1;
     const ori = document.getElementById('q_ori')?.value || 'portrait';
+    if (!d.name) { UI.toast('Введите название продукта', 'err'); return; }
     LABEL.printBatch([{ data: d, tmpl: t, count: cnt }], ori);
+    // Если это свободный ввод — кидаем заявку админу
+    if (d._freeInput) {
+      try {
+        const eid = parseInt(document.getElementById('q_emp').value) || null;
+        await SB.insert('print_queue', {
+          material_id:  null,
+          raw_name:     d.name,
+          template_id:  t?.id || null,
+          employee_id:  eid,
+          employee_name: document.getElementById('q_empm')?.value || null,
+          opened_at:    document.getElementById('q_dt')?.value || new Date().toISOString(),
+          batch:        document.getElementById('q_bat')?.value || null,
+          status:       'pending',
+          org_id:       S.ses?.orgId || 'vlavashe',
+          created_by:   S.ses?.id,
+          is_request:   true
+        });
+        UI.toast('📨 Заявка отправлена админу: ' + d.name, 'ok');
+      } catch(e) { console.error('request save failed', e); }
+    }
     logAct('Печать этикетки', S.ses?.name, d.name, 'print');
     if (S.tg.np && S.tg.tok && S.tg.cid) TG_MOD.send(`🖨️ Этикетка: ${d.name}\nСотрудник: ${d.openedBy}`);
   },
