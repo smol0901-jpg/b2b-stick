@@ -1,7 +1,7 @@
 /* === nav.js — page navigation & sidebar === */
 const NAV = {
   // Pages staff are never allowed to view, regardless of how navigation is triggered
-  STAFF_BLOCKED: ['cons', 'ai', 'sett'],
+  STAFF_BLOCKED: ['cons', 'ai', 'sett', 'mats', 'emps', 'tmpls', 'depts', 'jour', 'hist', 'reqs'],
 
   go(p) {
     // Guard: staff cannot reach admin-only pages (defense in depth, RLS is primary)
@@ -19,6 +19,11 @@ const NAV = {
     if (ni) ni.classList.add('on');
 
     S.page = p;
+
+    // Page render hooks
+    if (p === 'reqs' && typeof REQS !== 'undefined' && REQS.render) {
+      REQS.render().catch(e => console.error('reqs render:', e));
+    }
 
     // Delegate rendering to each page module
     const map = {
