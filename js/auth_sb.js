@@ -81,18 +81,16 @@ const AUTH = {
     rt.className   = 'hdr-role ' + rm.cls;
     document.getElementById('utag').textContent = S.ses.name;
 
+    // Скрываем админ-страницы от staff
     if (S.ses.role === 'staff') {
-      // Скрываем все админ-страницы от staff
       ['nav-sett','nav-ai','nav-mats','nav-emps','nav-tmpls','nav-cons','nav-depts','nav-jour','nav-hist','nav-reqs'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
       });
     } else {
-      // Админу показываем заявки (у суперадмина тоже)
+      // Админ/суперадмин: показываем заявки, скрываем кнопку печати для них
       const reqs = document.getElementById('nav-reqs');
       if (reqs) reqs.style.display = '';
-    } else {
-      // Admins/superadmins print directly — hide the staff-oriented FAB
       const fab = document.getElementById('fab-print');
       if (fab) fab.style.display = 'none';
     }
