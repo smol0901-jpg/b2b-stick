@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Setup: пересоздать суперадмина</title>
+<style>
+body{font-family:system-ui;background:#0e1116;color:#e6edf3;padding:24px;max-width:680px;margin:0 auto}
+h1{color:#00d4ff}
+.box{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:18px;margin:14px 0}
+.ok{color:#3fb950}.err{color:#f85149}.warn{color:#d29922}
+button{background:#238636;color:#fff;border:0;padding:12px 18px;border-radius:6px;cursor:pointer;font-size:14px;font-weight:600;margin-top:8px}
+button:hover{background:#2ea043}
+button:disabled{background:#444;cursor:not-allowed}
+pre{background:#0d1117;padding:12px;border-radius:6px;overflow-x:auto;font-size:11px;line-height:1.5}
+.muted{color:#8b949e;font-size:12px}
+.step{padding:10px;background:#1c2128;border-radius:4px;margin:8px 0;font-family:monospace;font-size:11px;border-left:3px solid #30363d}
+.step.ok{border-left-color:#3fb950}
+.step.err{border-left-color:#f85149}
+.step.working{border-left-color:#d29922;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+</style>
+</head>
+<body>
+<h1>🔧 Setup — пересоздать суперадмина</h1>
+
+<div class="box">
+  <p class="muted">
+    Удаляем <b>smol0901@gmail.com</b> и создаём нового суперадмина
+    <b>chef40rever@ro.ru</b> с паролем <b>000000</b>.
+  </p>
+  <p class="muted">⚠️ Сделано через Supabase Auth API (публичный anon key). Безопасно для одноразового использования.</p>
+
+  <button id="go" onclick="run()">▶ ЗАПУСТИТЬ</button>
+  <button onclick="location.href='index.html'">← На главную</button>
+</div>
+
+<div id="log" class="box" style="display:none">
+  <h3>Лог выполнения:</h3>
+  <div id="steps"></div>
+</div>
+
+<script src="js/vendor/supabase.min.js"></script>
+<script>
+const SUPABASE_URL  = 'https://yfxtmmhxbixngdvmucoc.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_N89j1UFUTdFMfHaixSJTlA_3CZXlokJ';
+const _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+let log = '';
+function step(msg, status = 'working') {
+  log += `<div class="step ${status}">[${new Date().toLocaleTimeString()}] ${msg}</div>`;
+  document.getElementById('steps').innerHTML = log;
+  console.log(msg);
+}
+
+async function run() {
+  const btn = document.getElementById('go');
+  btn.disabled = true;
+  document.getElementById('log').style.display = 'block';
+
+  // === Шаг 1: Попытка войти как старый суперадмин ===
+  step('1) Пробую войти как smol0901@gmail.com...', 'working');
+  let oldSession = null;
+  try {
+    const { data, error } = await _sb.auth.signInWithPassword({
+      email: 'smol0901@gmail.com', password: '00000000'
+    });
+    if (!error && data?.session) {
+      oldSession = data.session;
+      step('   ✓ Вошёл (пароль 00000000 подошёл)', 'ok');
+    } else {
+      step('   ⚠ Не вошёл: ' + (error?.message || 'нет сессии'), 'err');
+    }
+  } catch(e) {
+    step('   ⚠ Ошибка входа: ' + e.message, 'err');
+  }
+
+  // === Шаг 2: Создаём нового суперадмина через signUp ===
+  step('2) Создаю chef40rever@ro.ru через signUp...', 'working');
+  let newUser = null;
+  try {
+    const { data, error } = await _sb.auth.signUp({
+      email: 'chef40rever@ro.ru',
+      password: '000000',
+      options: { data: { name: 'Шеф', role: 'superadmin' } }
+    });
+    if (error) {
+      // Если юзер уже существует — пробуем войти
+      if (error.message?.includes('already') || error.message?.includes('registered')) {
+        step('   ⚠ Уже существует, пробую войти...', 'working');
+        const { data: si, error: se } = await _sb.auth.signInWithPassword({
+          email: 'chef40rever@ro.ru', password: '000000'
+        });
+        if (!se && si?.user) {
+          newUser = si.user;
+          step('   ✓ Вошёл как chef40rever@ro.ru', 'ok');
+        } else {
+          step('   ✗ Не удалось войти: ' + se?.message, 'err');
+        }
+      } else {
+        throw error;
+      }
+    } else if (data?.user) {
+      newUser = data.user;
+      step('   ✓ Создан, user_id = ' + newUser.id, 'ok');
+    }
+  } catch(e) {
+    step('   ✗ Ошибка создания: ' + e.message, 'err');
+  }
+
+  if (!newUser) {
+    step('⛔ СТОП: не получили нового юзера. Проверь, что email confirmation отключён в Supabase → Authentication → Settings.', 'err');
+    btn.disabled = false;
+    return;
+  }
+
+  // === Шаг 3: Создаём/обновляем profile с ролью superadmin ===
+  step('3) Создаю profile с ролью superadmin...', 'working');
+  try {
+    const { data, error } = await _sb.from('profiles').upsert({
+      id: newUser.id,
+      name: 'Шеф',
+      role: 'superadmin',
+      email: 'chef40rever@ro.ru',
+      position: 'Шеф-повар',
+      active: true,
+      org_id: 'vlavashe',
+      created_at: new Date().toISOString()
+    }, { onConflict: 'id' }).select().single();
+    if (error) throw error;
+    step('   ✓ Profile готов: ' + JSON.stringify(data, null, 0), 'ok');
+  } catch(e) {
+    step('   ✗ Ошибка profile: ' + e.message, 'err');
+    step('   ⚠ Если ошибка RLS — выполни в SQL Editor: GRANT ALL ON profiles TO authenticated;', 'err');
+  }
+
+  // === Шаг 4: Удаляем старого юзера (опционально) ===
+  step('4) Удаление старого smol0901@gmail.com...', 'working');
+  if (!oldSession) {
+    step('   ⚠ Не могу удалить — нет сессии старого юзера', 'err');
+    step('   → Удали вручную: Supabase Dashboard → Authentication → Users → smol0901@gmail.com → Delete user', 'err');
+  } else {
+    step('   ⚠ anon key не позволяет удалять других юзеров', 'err');
+    step('   → Удали вручную: Supabase Dashboard → Authentication → Users → smol0901@gmail.com → Delete user', 'err');
+  }
+
+  // === Готово ===
+  step('', 'ok');
+  step('✅ ГОТОВО!', 'ok');
+  step('Теперь войди: chef40rever@ro.ru / 000000', 'ok');
+  step('<a href="index.html" style="color:#00d4ff">→ Перейти к приложению</a>', 'ok');
+
+  btn.textContent = '✓ Готово';
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
